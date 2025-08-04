@@ -12,7 +12,8 @@ except ImportError:
 import numpy as np
 import tensorly as tl
 from scipy.optimize import bisect
-from scipy.sparse import csr_matrix,bmat,spsolve
+from scipy.sparse import csr_matrix,bmat
+from scipy.sparse.linalg import spsolve
 
 from ._doc_utils import InheritableDocstrings, copy_ancestor_docstring
 from ._unimodal_regression import unimodal_regression
