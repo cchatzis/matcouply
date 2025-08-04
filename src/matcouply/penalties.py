@@ -12,7 +12,7 @@ except ImportError:
 import numpy as np
 import tensorly as tl
 from scipy.optimize import bisect
-from scipy.sparse import csr_matrix,bmat
+from scipy.sparse import csr_matrix, bmat
 from scipy.sparse.linalg import spsolve
 
 from ._doc_utils import InheritableDocstrings, copy_ancestor_docstring
@@ -1379,7 +1379,7 @@ class TemporalSmoothnessPenalty(MatricesPenalty):
         super().__init__(aux_init=aux_init, dual_init=dual_init)
         self.smoothness_l = smoothness_l
 
-    def _get_laplace_coef(self,i, I):
+    def _get_laplace_coef(self, i, I):
         if i == 0 or i == I - 1:
             return 2 * self.smoothness_l
         else:
@@ -1428,6 +1428,7 @@ class TemporalSmoothnessPenalty(MatricesPenalty):
             penalty += tl.sum((x1 - x2) ** 2)
         return self.smoothness_l * penalty
 
+
 class LDSPenalty(MatricesPenalty):
     r"""Impose Linear Dynamical System Constraint (LDS) on the evolving factor matrices:
 
@@ -1454,7 +1455,11 @@ class LDSPenalty(MatricesPenalty):
     """
 
     def __init__(
-        self, smoothness_l, H, aux_init="random_uniform", dual_init="random_uniform",
+        self,
+        smoothness_l,
+        H,
+        aux_init="random_uniform",
+        dual_init="random_uniform",
     ):
         super().__init__(aux_init=aux_init, dual_init=dual_init)
         self.smoothness_l = smoothness_l
@@ -1486,7 +1491,7 @@ class LDSPenalty(MatricesPenalty):
             if k == 0:
                 A_diag = 2 * self.smoothness_l * HtH + rhos[k] * np.eye(J)
             elif k == K - 1:
-                A_diag = (2 * self.smoothness_l + rhos[k] ) * np.eye(J)
+                A_diag = (2 * self.smoothness_l + rhos[k]) * np.eye(J)
             else:
                 A_diag = 2 * self.smoothness_l * HtH + rhos[k] * np.eye(J) + 2 * self.smoothness_l * np.eye(J)
 
