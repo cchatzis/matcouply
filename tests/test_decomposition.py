@@ -10,6 +10,7 @@ import pytest
 import tensorly as tl
 from tensorly.metrics.factors import congruence_coefficient
 from tensorly.testing import assert_array_equal
+from tensorly.random import random_parafac2
 
 import matcouply
 from matcouply import coupled_matrices, decomposition, penalties
@@ -2054,3 +2055,54 @@ def test_update_imputed(rng,random_ragged_cmf):
 
     for slice_no,_ in enumerate(slices):
         assert_allclose(imputed_tensor[slice_no], slices[slice_no])
+
+def test_missing_data_em(rng,random_ragged_cmf):
+
+    _, shapes, rank = random_ragged_cmf
+
+    random_parafac2_tensor = random_parafac2(
+        shapes=shapes,
+        rank=rank,
+        random_state=rng,
+    )
+
+    cmf = CoupledMatrixFactorization.from_Parafac2Tensor(random_parafac2_tensor)
+
+    slices = cmf.to_matrices()
+
+    # Form the full data and a mask with ~10% missing values
+
+    slices_masks = [
+        tl.tensor(rng.binomial(1, 0.9, size=tl.shape(slice)), dtype=tl.float64)
+        for slice in slices
+    ]
+
+    # apply the mask, setting missing values to zero
+
+    slices_w_missing = [
+        tl.where(slice_mask == 0.0, 0.0, slice)
+        for slice, slice_mask in zip(slices, slices_masks)
+    ]    
+
+    factors = decomposition.parafac2_aoadmm(
+        matrices=slices_w_missing,
+        rank=rank,
+        random_state=rng,
+        n_iter_max=2000,
+        mask=slices_masks,
+    )
+
+    # Check accuracy of imputed entries
+
+    rec_slices = factors.to_matrices()
+
+    total_rel_error = 0
+    total_norm = 0
+
+    for rec_slice, slice_mask, gnd_slice in zip(rec_slices,slices_masks,slices):
+        total_rel_error += tl.norm((1 - slice_mask) * gnd_slice - (1 - slice_mask) * rec_slice)**2
+        total_norm += tl.norm((1 - slice_mask) * gnd_slice)**2
+    
+    total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
+
+    assert total_rel_error < 0.05
