@@ -2008,3 +2008,49 @@ def test_cmf_reconstruction_error_coincides_with_naive_implementation(rng, seed,
         random_state=seed + 2  # To use different seed than the rng which generated the factor matrices
     )
     assert np.allclose(diagnostics2.rec_errors, diagnostics.rec_errors, atol=1e-7, rtol=1e-5*RTOL_SCALE)
+
+def test_update_imputed(rng,random_ragged_cmf):
+
+    cmf, shapes, rank = random_ragged_cmf
+    weights, (A, B_is, C) = cmf
+
+    # Check that _update_imputed works correctly when imputing values according to the reconstructed tensor,
+    # i.e. mode='factors'
+
+    slices = cmf.to_matrices()
+    slices_masks = [
+        tl.tensor(rng.binomial(1, 0.25, size=tl.shape(slice)), dtype=tl.float64)
+        for slice in slices
+    ]
+
+    imputed_tensor = decomposition._update_imputed(
+        tensor_slices=slices,
+        mask=slices_masks,
+        decomposition=cmf,
+        method="factors",
+    )
+
+    for slice_no,_ in enumerate(slices):
+        assert_allclose(imputed_tensor[slice_no], slices[slice_no])
+
+    # Check that _update_imputed works correctly when imputing values according to nanmean of mode-2 slices
+
+    slices[slices_masks == 0] == tl.nan
+    slices = list(slices)
+
+    for i in range(len(slices)):
+        slices[i] = tl.where(
+            tl.tensor(slices_masks[i] == 0),
+            tl.tensor(np.nanmean(slices[i])),
+            tl.tensor(slices[i]),
+        )
+
+    imputed_tensor = decomposition._update_imputed(
+        tensor_slices=slices,
+        mask=slices_masks,
+        decomposition=cmf,
+        method="mode-2",
+    )
+
+    for slice_no,_ in enumerate(slices):
+        assert_allclose(imputed_tensor[slice_no], slices[slice_no])
