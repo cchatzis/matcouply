@@ -23,7 +23,7 @@ from .utils import RTOL_SCALE
 
 
 def normalize(X):
-    ssX = tl.sum(X ** 2, 0)
+    ssX = tl.sum(X**2, 0)
     ssX = tl.reshape(ssX, (1, *tl.shape(ssX)))
     return X / tl.sqrt(ssX)
 
@@ -75,7 +75,8 @@ def test_initialize_cmf_invalid_init(rng):
 
 
 @pytest.mark.parametrize(
-    "rank", [1, 2, 5],
+    "rank",
+    [1, 2, 5],
 )
 def test_initialize_aux(rng, rank):
     shapes = ((5, 10), (10, 10), (15, 10))
@@ -98,7 +99,8 @@ def test_initialize_aux(rng, rank):
 
 
 @pytest.mark.parametrize(
-    "rank", [1, 2, 5],
+    "rank",
+    [1, 2, 5],
 )
 def test_initialize_dual(rng, rank):
     shapes = ((5, 10), (10, 10), (15, 10))
@@ -127,7 +129,7 @@ def test_cmf_reconstruction_error(rng, random_ragged_cmf):
     # Add random noise
     noise = [tl.tensor(rng.standard_normal(size=shape)) for shape in shapes]
     noisy_matrices = [matrix + n for matrix, n in zip(matrices, noise)]
-    noise_norm = tl.sqrt(sum(tl.sum(n ** 2) for n in noise))
+    noise_norm = tl.sqrt(sum(tl.sum(n**2) for n in noise))
 
     # Check that the error is equal to the noise magnitude
     error = decomposition._cmf_reconstruction_error(noisy_matrices, cmf)
@@ -1456,11 +1458,15 @@ def test_cmf_aoadmm(rng, random_ragged_cmf):
 
     # Construct matrices and compute their norm
     matrices = nn_cmf.to_matrices()
-    norm_matrices = tl.sqrt(sum(tl.sum(matrix ** 2) for matrix in matrices))
+    norm_matrices = tl.sqrt(sum(tl.sum(matrix**2) for matrix in matrices))
 
     # Decompose matrices with cmf_aoadmm with no constraints
     out_cmf, (aux, dual), diagnostics = decomposition.cmf_aoadmm(
-        matrices, rank, n_iter_max=5_000, return_errors=True, return_admm_vars=True,
+        matrices,
+        rank,
+        n_iter_max=5_000,
+        return_errors=True,
+        return_admm_vars=True,
     )
 
     # Check that reconstruction error is low
@@ -1513,7 +1519,7 @@ def test_cmf_aoadmm(rng, random_ragged_cmf):
     )
     # Check that final reconstruction error is the same as when we compute it with the returned decomposition and auxes
     rec_error = decomposition._cmf_reconstruction_error(matrices, out_cmf) / norm_matrices
-    assert rec_error == pytest.approx(diagnostics.rec_errors[-1], rel=1e-6*RTOL_SCALE)
+    assert rec_error == pytest.approx(diagnostics.rec_errors[-1], rel=1e-6 * RTOL_SCALE)
 
     # Check that feasibility gaps are the same as when we compute it with the returned decomposition and auxes
     A_gap_list, B_gap_list, C_gap_list = decomposition.compute_feasibility_gaps(out_cmf, regs, *aux)
@@ -1609,7 +1615,12 @@ def test_parafac2_makes_nn_cmf_unique(rng):
     regularized_loss = [float("inf")]
     for init in range(5):
         out, diagnostics = decomposition.cmf_aoadmm(
-            matrices, rank, n_iter_max=1_000, return_errors=True, non_negative=[True, True, True], parafac2=True,
+            matrices,
+            rank,
+            n_iter_max=1_000,
+            return_errors=True,
+            non_negative=[True, True, True],
+            parafac2=True,
         )
 
         if diagnostics.regularized_loss[-1] < regularized_loss[-1] and diagnostics.satisfied_feasibility_condition:
@@ -1639,7 +1650,11 @@ def test_cmf_aoadmm_not_updating_A_works(rng, random_rank5_ragged_cmf):
 
     # Decompose matrices with cmf_aoadmm with no constraints
     out_cmf = decomposition.cmf_aoadmm(
-        matrices, rank, n_iter_max=5, update_A=False, init=(None, (wrong_A_copy, B_is_copy, C_copy)),
+        matrices,
+        rank,
+        n_iter_max=5,
+        update_A=False,
+        init=(None, (wrong_A_copy, B_is_copy, C_copy)),
     )
 
     out_weights, (out_A, out_B_is, out_C) = out_cmf
@@ -1662,7 +1677,11 @@ def test_cmf_aoadmm_not_updating_C_works(rng, random_rank5_ragged_cmf):
 
     # Decompose matrices with cmf_aoadmm with no constraints
     out_cmf = decomposition.cmf_aoadmm(
-        matrices, rank, n_iter_max=5, update_C=False, init=(None, (A_copy, B_is_copy, wrong_C_copy)),
+        matrices,
+        rank,
+        n_iter_max=5,
+        update_C=False,
+        init=(None, (A_copy, B_is_copy, wrong_C_copy)),
     )
 
     out_weights, (out_A, out_B_is, out_C) = out_cmf
@@ -1684,7 +1703,11 @@ def test_cmf_aoadmm_not_updating_B_is_works(rng, random_rank5_ragged_cmf):
 
     # Decompose matrices with cmf_aoadmm with no constraints
     out_cmf = decomposition.cmf_aoadmm(
-        matrices, rank, n_iter_max=5, update_B_is=False, init=(None, (A_copy, wrong_B_is_copy, C_copy)),
+        matrices,
+        rank,
+        n_iter_max=5,
+        update_B_is=False,
+        init=(None, (A_copy, wrong_B_is_copy, C_copy)),
     )
 
     out_weights, (out_A, out_B_is, out_C) = out_cmf
@@ -1709,9 +1732,9 @@ def test_compute_l2_penalty(rng, random_ragged_cmf):
     cmf, shapes, rank = random_ragged_cmf
     weights, (A, B_is, C) = cmf
 
-    SS_A = tl.sum(A ** 2)
-    SS_B = sum(tl.sum(B_i ** 2) for B_i in B_is)
-    SS_C = tl.sum(C ** 2)
+    SS_A = tl.sum(A**2)
+    SS_B = sum(tl.sum(B_i**2) for B_i in B_is)
+    SS_C = tl.sum(C**2)
 
     assert decomposition._compute_l2_penalty(cmf, [0, 0, 0]) == 0
     assert decomposition._compute_l2_penalty(cmf, [1, 0, 0]) == pytest.approx(0.5 * SS_A)
@@ -1727,32 +1750,46 @@ def test_l2_penalty_is_included(rng, random_ragged_cmf):
 
     # Decompose matrices with cmf_aoadmm with no constraints
     out_cmf, diagnostics = decomposition.cmf_aoadmm(
-        matrices, rank, n_iter_max=5, return_errors=True, update_B_is=False,
+        matrices,
+        rank,
+        n_iter_max=5,
+        return_errors=True,
+        update_B_is=False,
     )
 
     rel_sse = diagnostics.rec_errors[-1] ** 2
     assert diagnostics.regularized_loss[-1] == pytest.approx(0.5 * rel_sse)
 
     out_cmf, diagnostics = decomposition.cmf_aoadmm(
-        matrices, rank, n_iter_max=5, l2_penalty=1, return_errors=True, update_B_is=False,
+        matrices,
+        rank,
+        n_iter_max=5,
+        l2_penalty=1,
+        return_errors=True,
+        update_B_is=False,
     )
 
     out_weights, (out_A, out_B_is, out_C) = out_cmf
     rel_sse = diagnostics.rec_errors[-1] ** 2
-    SS_A = tl.sum(out_A ** 2)
-    SS_B = sum(tl.sum(out_B_i ** 2) for out_B_i in out_B_is)
-    SS_C = tl.sum(out_C ** 2)
+    SS_A = tl.sum(out_A**2)
+    SS_B = sum(tl.sum(out_B_i**2) for out_B_i in out_B_is)
+    SS_C = tl.sum(out_C**2)
     assert diagnostics.regularized_loss[-1] == pytest.approx(0.5 * rel_sse + 0.5 * (SS_A + SS_B + SS_C))
 
     out_cmf, diagnostics = decomposition.cmf_aoadmm(
-        matrices, rank, n_iter_max=5, l2_penalty=[1, 2, 3], return_errors=True, update_B_is=False,
+        matrices,
+        rank,
+        n_iter_max=5,
+        l2_penalty=[1, 2, 3],
+        return_errors=True,
+        update_B_is=False,
     )
 
     out_weights, (out_A, out_B_is, out_C) = out_cmf
     rel_sse = diagnostics.rec_errors[-1] ** 2
-    SS_A = tl.sum(out_A ** 2)
-    SS_B = sum(tl.sum(out_B_i ** 2) for out_B_i in out_B_is)
-    SS_C = tl.sum(out_C ** 2)
+    SS_A = tl.sum(out_A**2)
+    SS_B = sum(tl.sum(out_B_i**2) for out_B_i in out_B_is)
+    SS_C = tl.sum(out_C**2)
     assert diagnostics.regularized_loss[-1] == pytest.approx(0.5 * rel_sse + 0.5 * (1 * SS_A + 2 * SS_B + 3 * SS_C))
 
 
@@ -1853,11 +1890,11 @@ def test_first_loss_value_is_correct(random_ragged_cmf):
     l1_C = tl.sum(tl.abs(C))
     l1_reg_penalty = l1_A + l1_B + l1_C
     l2_A = tl.sum((weights * A) ** 2)
-    l2_B = sum(tl.sum(B_i ** 2) for B_i in B_is)
-    l2_C = tl.sum(C ** 2)
+    l2_B = sum(tl.sum(B_i**2) for B_i in B_is)
+    l2_C = tl.sum(C**2)
     l2_reg_penalty = l2_A + l2_B + l2_C
     rec_error = 0
-    initial_loss = 0.5 * rec_error ** 2 + 0.5 * 0.1 * l2_reg_penalty + 0.2 * l1_reg_penalty
+    initial_loss = 0.5 * rec_error**2 + 0.5 * 0.1 * l2_reg_penalty + 0.2 * l1_reg_penalty
 
     # Check that we get correct output when none of the conditions are met
     out_cmf, diagnostics = decomposition.cmf_aoadmm(
@@ -1876,7 +1913,8 @@ def test_first_loss_value_is_correct(random_ragged_cmf):
 
 
 @pytest.mark.parametrize(
-    "n_iter_max", [-1, 0],
+    "n_iter_max",
+    [-1, 0],
 )
 def test_cmf_aoadmm_works_with_zero_iteration(random_ragged_cmf, n_iter_max):
     cmf, shapes, rank = random_ragged_cmf
@@ -1969,12 +2007,12 @@ def test_cmf_reconstruction_error_coincides_with_naive_implementation(rng, seed,
     C = tl.clip(C, 0, None)
     nn_cmf = coupled_matrices.CoupledMatrixFactorization((weights, (A, B_is, C)))
 
-    # Construct matrices 
+    # Construct matrices
     matrices = nn_cmf.to_matrices()
 
     # Add random noise
     noise = [tl.tensor(rng.standard_normal(size=shape)) for shape in shapes]
-    noisy_matrices = [matrix + 0.2*n for matrix, n in zip(matrices, noise)]
+    noisy_matrices = [matrix + 0.2 * n for matrix, n in zip(matrices, noise)]
 
     # Decompose matrices with cmf_aoadmm with no constraints
     out_cmf, (aux, dual), diagnostics = decomposition.cmf_aoadmm(
@@ -1986,17 +2024,16 @@ def test_cmf_reconstruction_error_coincides_with_naive_implementation(rng, seed,
         absolute_tol=None,
         tol=None,
         non_negative=True,
-        random_state=seed + 2  # To use different seed than the rng which generated the factor matrices
+        random_state=seed + 2,  # To use different seed than the rng which generated the factor matrices
     )
 
     # Replace the efficient error computation with a direct (naive) implementation
     def _cmf_reconstruction_error(matrices, cmf, *args, **kwargs):
         estimated_matrices = coupled_matrices.cmf_to_matrices(cmf, validate=False)
-        return decomposition._root_sum_squared_list(
-            [X - Xhat for X, Xhat in zip(matrices, estimated_matrices)]
-        )
+        return decomposition._root_sum_squared_list([X - Xhat for X, Xhat in zip(matrices, estimated_matrices)])
+
     monkeypatch.setattr(decomposition, "_cmf_reconstruction_error", _cmf_reconstruction_error)
-    
+
     out_cmf2, (aux2, dual2), diagnostics2 = decomposition.cmf_aoadmm(
         noisy_matrices,
         rank,
@@ -2006,11 +2043,12 @@ def test_cmf_reconstruction_error_coincides_with_naive_implementation(rng, seed,
         absolute_tol=None,
         tol=None,
         non_negative=True,
-        random_state=seed + 2  # To use different seed than the rng which generated the factor matrices
+        random_state=seed + 2,  # To use different seed than the rng which generated the factor matrices
     )
-    assert np.allclose(diagnostics2.rec_errors, diagnostics.rec_errors, atol=1e-7, rtol=1e-5*RTOL_SCALE)
+    assert np.allclose(diagnostics2.rec_errors, diagnostics.rec_errors, atol=1e-7, rtol=1e-5 * RTOL_SCALE)
 
-def test_update_imputed(rng,random_ragged_cmf):
+
+def test_update_imputed(rng, random_ragged_cmf):
 
     cmf, shapes, rank = random_ragged_cmf
     weights, (A, B_is, C) = cmf
@@ -2019,10 +2057,7 @@ def test_update_imputed(rng,random_ragged_cmf):
     # i.e. mode='factors'
 
     slices = cmf.to_matrices()
-    slices_masks = [
-        tl.tensor(rng.binomial(1, 0.25, size=tl.shape(slice)), dtype=tl.float64)
-        for slice in slices
-    ]
+    slices_masks = [tl.tensor(rng.binomial(1, 0.25, size=tl.shape(slice)), dtype=tl.float64) for slice in slices]
 
     imputed_tensor = decomposition._update_imputed(
         tensor_slices=slices,
@@ -2031,10 +2066,10 @@ def test_update_imputed(rng,random_ragged_cmf):
         method="factors",
     )
 
-    for slice_no,_ in enumerate(slices):
+    for slice_no, _ in enumerate(slices):
         assert_allclose(imputed_tensor[slice_no], slices[slice_no])
 
-    # Check that _update_imputed works correctly when imputing values according to nanmean of mode-2 slices
+    # Check that _update_imputed works correctly when imputing values according to nanmean of mode-3 slices
 
     slices[slices_masks == 0] == tl.nan
     slices = list(slices)
@@ -2050,13 +2085,14 @@ def test_update_imputed(rng,random_ragged_cmf):
         tensor_slices=slices,
         mask=slices_masks,
         decomposition=cmf,
-        method="mode-2",
+        method="mode-3",
     )
 
-    for slice_no,_ in enumerate(slices):
+    for slice_no, _ in enumerate(slices):
         assert_allclose(imputed_tensor[slice_no], slices[slice_no])
 
-def test_missing_data_em(rng,random_ragged_cmf):
+
+def test_missing_data_em(rng, random_ragged_cmf):
 
     _, shapes, rank = random_ragged_cmf
 
@@ -2072,17 +2108,11 @@ def test_missing_data_em(rng,random_ragged_cmf):
 
     # Form the full data and a mask with ~10% missing values
 
-    slices_masks = [
-        tl.tensor(rng.binomial(1, 0.9, size=tl.shape(slice)), dtype=tl.float64)
-        for slice in slices
-    ]
+    slices_masks = [tl.tensor(rng.binomial(1, 0.9, size=tl.shape(slice)), dtype=tl.float64) for slice in slices]
 
     # apply the mask, setting missing values to zero
 
-    slices_w_missing = [
-        tl.where(slice_mask == 0.0, 0.0, slice)
-        for slice, slice_mask in zip(slices, slices_masks)
-    ]    
+    slices_w_missing = [tl.where(slice_mask == 0.0, 0.0, slice) for slice, slice_mask in zip(slices, slices_masks)]
 
     factors = decomposition.parafac2_aoadmm(
         matrices=slices_w_missing,
@@ -2099,10 +2129,10 @@ def test_missing_data_em(rng,random_ragged_cmf):
     total_rel_error = 0
     total_norm = 0
 
-    for rec_slice, slice_mask, gnd_slice in zip(rec_slices,slices_masks,slices):
-        total_rel_error += tl.norm((1 - slice_mask) * gnd_slice - (1 - slice_mask) * rec_slice)**2
-        total_norm += tl.norm((1 - slice_mask) * gnd_slice)**2
-    
+    for rec_slice, slice_mask, gnd_slice in zip(rec_slices, slices_masks, slices):
+        total_rel_error += tl.norm((1 - slice_mask) * gnd_slice - (1 - slice_mask) * rec_slice) ** 2
+        total_norm += tl.norm((1 - slice_mask) * gnd_slice) ** 2
+
     total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
 
     assert total_rel_error < 0.05
