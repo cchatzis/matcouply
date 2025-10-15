@@ -27,10 +27,10 @@ def _update_imputed(tensor_slices, mask, decomposition, method):
         missing values and 1 everywhere else.
     decomposition : Parafac2Tensor, optional
     method : string
-        One of 'mode-2' or 'factors'. 'mode-2' updates imputed values according to
-        mean of each mode-2 slice. If 'factors' is chosen, set missing entries
+        One of 'mode-3' or 'factors'. 'mode-3' updates imputed values according to
+        mean of each mode-3 slice. If 'factors' is chosen, set missing entries
         according to reconstructed tensor given from 'decomposition'.
-        'mode-2' is used (by default) for initializing missing entries while
+        'mode-3' is used (by default) for initializing missing entries while
         'factors' is used for updating imputations during optimization. If an
         initial decomposition is specified, 'factors' is used at initialization.
 
@@ -39,7 +39,7 @@ def _update_imputed(tensor_slices, mask, decomposition, method):
     tensor_slices : Iterable of ndarray
     """
 
-    if method == "mode-2":
+    if method == "mode-3":
 
         for slice_no, (slice, slice_mask) in enumerate(zip(tensor_slices, mask)):
 
@@ -943,7 +943,7 @@ def cmf_aoadmm(
 
         if init == "random" or init == "svd" or init == "threshold_svd":
 
-            matrices = _update_imputed(tensor_slices=list(matrices), mask=mask, decomposition=None, method="mode-2")
+            matrices = _update_imputed(tensor_slices=list(matrices), mask=mask, decomposition=None, method="mode-3")
 
         else:  # If factors are provided from a "warmer" start (e.g. parafac2_als) use the factor estimates as initial guesses
 
