@@ -2165,7 +2165,6 @@ def test_structured_mode3_fibers_missing_em(rng, random_regular_cmf):
     # Form the full data and a mask with ~10% missing fibers
 
     slices_masks = [tl.tensor(rng.binomial(1, 0.9, size=slices[0].shape), dtype=tl.float64)] * len(slices)
-    print(f"perc of mising: {100*(1-tl.sum(slices_masks[0])/np.prod(slices_masks[0].shape))}%")
 
     # apply the mask, setting missing values to zero
 
@@ -2222,8 +2221,8 @@ def test_structured_mode1_fibers_missing_em(rng, random_regular_cmf):
     # Form the full data and a mask with ~10% missing fibers
     mode2_slice_mask = tl.tensor(rng.binomial(1, 0.9, size=(slices[0].shape[1], len(slices))), dtype=tl.float64)
 
-    tensor_mask = tl.stack([mode2_slice_mask]*slices[0].shape[0], axis=0)
-    slices_masks = [tensor_mask[:,:, k] for k in range(tensor_mask.shape[2])]
+    tensor_mask = tl.stack([mode2_slice_mask] * slices[0].shape[0], axis=0)
+    slices_masks = [tensor_mask[:, :, k] for k in range(tensor_mask.shape[2])]
 
     # apply the mask, setting missing values to zero
 
