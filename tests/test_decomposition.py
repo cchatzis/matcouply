@@ -2092,7 +2092,7 @@ def test_update_imputed(rng, random_ragged_cmf):
         assert_allclose(imputed_tensor[slice_no], slices[slice_no])
 
 
-def test_missing_data_em(rng, random_ragged_cmf):
+def test_randomly_missing_em(rng, random_ragged_cmf):
 
     _, shapes, rank = random_ragged_cmf
 
@@ -2120,6 +2120,122 @@ def test_missing_data_em(rng, random_ragged_cmf):
         random_state=rng,
         n_iter_max=2000,
         mask=slices_masks,
+    )
+
+    # Check accuracy of imputed entries
+
+    rec_slices = factors.to_matrices()
+
+    total_rel_error = 0
+    total_norm = 0
+
+    for rec_slice, slice_mask, gnd_slice in zip(rec_slices, slices_masks, slices):
+        total_rel_error += tl.norm((1 - slice_mask) * gnd_slice - (1 - slice_mask) * rec_slice) ** 2
+        total_norm += tl.norm((1 - slice_mask) * gnd_slice) ** 2
+
+    total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
+
+    assert total_rel_error < 0.05
+
+    # Check accuracy of recovered factors
+
+    A, B_is, C = cmf[1]
+    A_rec, B_is_rec, C_rec = factors[1]
+
+    assert congruence_coefficient(A, A_rec, absolute_value=True)[0] > 0.95
+    for B_i, B_i_rec in zip(B_is, B_is_rec):
+        assert congruence_coefficient(B_i, B_i_rec, absolute_value=True)[0] > 0.95
+    assert congruence_coefficient(C, C_rec, absolute_value=True)[0] > 0.95
+
+
+def test_structured_mode3_fibers_missing_em(rng, random_regular_cmf):
+
+    _, _, rank = random_regular_cmf
+
+    random_parafac2_tensor = random_parafac2(
+        shapes=[(20, 35) for _ in range(25)],
+        rank=rank,
+        random_state=rng,
+    )
+
+    cmf = CoupledMatrixFactorization.from_Parafac2Tensor(random_parafac2_tensor)
+
+    slices = cmf.to_matrices()
+
+    # Form the full data and a mask with ~10% missing fibers
+
+    slices_masks = [tl.tensor(rng.binomial(1, 0.9, size=slices[0].shape), dtype=tl.float64)] * len(slices)
+    print(f"perc of mising: {100*(1-tl.sum(slices_masks[0])/np.prod(slices_masks[0].shape))}%")
+
+    # apply the mask, setting missing values to zero
+
+    slices_w_missing = [tl.where(slice_mask == 0.0, 0.0, slice) for slice, slice_mask in zip(slices, slices_masks)]
+
+    factors = decomposition.parafac2_aoadmm(
+        matrices=slices_w_missing,
+        rank=rank,
+        random_state=rng,
+        n_iter_max=2000,
+        mask=slices_masks,
+    )
+
+    # Check accuracy of imputed entries
+
+    rec_slices = factors.to_matrices()
+
+    total_rel_error = 0
+    total_norm = 0
+
+    for rec_slice, slice_mask, gnd_slice in zip(rec_slices, slices_masks, slices):
+        total_rel_error += tl.norm((1 - slice_mask) * gnd_slice - (1 - slice_mask) * rec_slice) ** 2
+        total_norm += tl.norm((1 - slice_mask) * gnd_slice) ** 2
+
+    total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
+
+    assert total_rel_error < 0.05
+
+    # Check accuracy of recovered factors
+
+    A, B_is, C = cmf[1]
+    A_rec, B_is_rec, C_rec = factors[1]
+
+    assert congruence_coefficient(A, A_rec, absolute_value=True)[0] > 0.95
+    for B_i, B_i_rec in zip(B_is, B_is_rec):
+        assert congruence_coefficient(B_i, B_i_rec, absolute_value=True)[0] > 0.95
+    assert congruence_coefficient(C, C_rec, absolute_value=True)[0] > 0.95
+
+
+def test_structured_mode1_fibers_missing_em(rng, random_regular_cmf):
+
+    _, _, rank = random_regular_cmf
+
+    random_parafac2_tensor = random_parafac2(
+        shapes=[(20, 35) for _ in range(25)],
+        rank=rank,
+        random_state=rng,
+    )
+
+    cmf = CoupledMatrixFactorization.from_Parafac2Tensor(random_parafac2_tensor)
+
+    slices = cmf.to_matrices()
+
+    # Form the full data and a mask with ~10% missing fibers
+    mode2_slice_mask = tl.tensor(rng.binomial(1, 0.9, size=(slices[0].shape[1], len(slices))), dtype=tl.float64)
+
+    tensor_mask = tl.stack([mode2_slice_mask]*slices[0].shape[0], axis=0)
+    slices_masks = [tensor_mask[:,:, k] for k in range(tensor_mask.shape[2])]
+
+    # apply the mask, setting missing values to zero
+
+    slices_w_missing = [tl.where(slice_mask == 0.0, 0.0, slice) for slice, slice_mask in zip(slices, slices_masks)]
+
+    factors = decomposition.parafac2_aoadmm(
+        matrices=slices_w_missing,
+        rank=rank,
+        random_state=rng,
+        n_iter_max=2000,
+        mask=slices_masks,
+        verbose=True,
     )
 
     # Check accuracy of imputed entries
