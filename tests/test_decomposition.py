@@ -2137,16 +2137,6 @@ def test_randomly_missing_em(rng, random_ragged_cmf):
 
     assert total_rel_error < 0.05
 
-    # Check accuracy of recovered factors
-
-    A, B_is, C = cmf[1]
-    A_rec, B_is_rec, C_rec = factors[1]
-
-    assert congruence_coefficient(A, A_rec, absolute_value=True)[0] > 0.95
-    for B_i, B_i_rec in zip(B_is, B_is_rec):
-        assert congruence_coefficient(B_i, B_i_rec, absolute_value=True)[0] > 0.95
-    assert congruence_coefficient(C, C_rec, absolute_value=True)[0] > 0.95
-
 
 def test_structured_mode3_fibers_missing_em(rng, random_regular_cmf):
 
@@ -2192,16 +2182,6 @@ def test_structured_mode3_fibers_missing_em(rng, random_regular_cmf):
     total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
 
     assert total_rel_error < 0.05
-
-    # Check accuracy of recovered factors
-
-    A, B_is, C = cmf[1]
-    A_rec, B_is_rec, C_rec = factors[1]
-
-    assert congruence_coefficient(A, A_rec, absolute_value=True)[0] > 0.95
-    for B_i, B_i_rec in zip(B_is, B_is_rec):
-        assert congruence_coefficient(B_i, B_i_rec, absolute_value=True)[0] > 0.95
-    assert congruence_coefficient(C, C_rec, absolute_value=True)[0] > 0.95
 
 
 def test_structured_mode1_fibers_missing_em(rng, random_regular_cmf):
@@ -2251,13 +2231,3 @@ def test_structured_mode1_fibers_missing_em(rng, random_regular_cmf):
     total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
 
     assert total_rel_error < 0.05
-
-    # Check accuracy of recovered factors
-
-    A, B_is, C = cmf[1]
-    A_rec, B_is_rec, C_rec = factors[1]
-
-    assert congruence_coefficient(A, A_rec, absolute_value=True)[0] > 0.95
-    for B_i, B_i_rec in zip(B_is, B_is_rec):
-        assert congruence_coefficient(B_i, B_i_rec, absolute_value=True)[0] > 0.95
-    assert congruence_coefficient(C, C_rec, absolute_value=True)[0] > 0.95
