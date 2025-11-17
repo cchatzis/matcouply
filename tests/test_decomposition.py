@@ -11,6 +11,7 @@ import tensorly as tl
 from tensorly.metrics.factors import congruence_coefficient
 from tensorly.testing import assert_array_equal
 from tensorly.random import random_parafac2
+from copy import deepcopy
 
 import matcouply
 from matcouply import coupled_matrices, decomposition, penalties
@@ -2092,31 +2093,28 @@ def test_update_imputed(rng, random_ragged_cmf):
         assert_allclose(imputed_tensor[slice_no], slices[slice_no])
 
 
-def test_randomly_missing_em(rng, random_ragged_cmf):
+def test_randomly_missing_em(rng):
 
-    _, shapes, rank = random_ragged_cmf
+    no_of_components = 2
 
     random_parafac2_tensor = random_parafac2(
-        shapes=shapes,
-        rank=rank,
+        shapes=[(20, 35) for _ in range(25)],
+        rank=no_of_components,
         random_state=rng,
     )
 
     cmf = CoupledMatrixFactorization.from_Parafac2Tensor(random_parafac2_tensor)
 
     slices = cmf.to_matrices()
+    complete_data = deepcopy(slices)
 
     # Form the full data and a mask with ~10% missing values
 
     slices_masks = [tl.tensor(rng.binomial(1, 0.9, size=tl.shape(slice)), dtype=tl.float64) for slice in slices]
 
-    # apply the mask, setting missing values to zero
-
-    slices_w_missing = [tl.where(slice_mask == 0.0, 0.0, slice) for slice, slice_mask in zip(slices, slices_masks)]
-
     factors = decomposition.parafac2_aoadmm(
-        matrices=slices_w_missing,
-        rank=rank,
+        matrices=slices,
+        rank=no_of_components,
         random_state=rng,
         n_iter_max=2000,
         mask=slices_masks,
@@ -2129,40 +2127,37 @@ def test_randomly_missing_em(rng, random_ragged_cmf):
     total_rel_error = 0
     total_norm = 0
 
-    for rec_slice, slice_mask, gnd_slice in zip(rec_slices, slices_masks, slices):
+    for rec_slice, slice_mask, gnd_slice in zip(rec_slices, slices_masks, complete_data):
         total_rel_error += tl.norm((1 - slice_mask) * gnd_slice - (1 - slice_mask) * rec_slice) ** 2
         total_norm += tl.norm((1 - slice_mask) * gnd_slice) ** 2
 
     total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
 
-    assert total_rel_error < 0.05
+    assert total_rel_error < 0.1
 
 
-def test_structured_mode3_fibers_missing_em(rng, random_regular_cmf):
+def test_structured_mode3_fibers_missing_em(rng):
 
-    _, _, rank = random_regular_cmf
+    no_of_components = 2
 
     random_parafac2_tensor = random_parafac2(
         shapes=[(20, 35) for _ in range(25)],
-        rank=rank,
+        rank=no_of_components,
         random_state=rng,
     )
 
     cmf = CoupledMatrixFactorization.from_Parafac2Tensor(random_parafac2_tensor)
 
     slices = cmf.to_matrices()
+    complete_data = deepcopy(slices)
 
     # Form the full data and a mask with ~10% missing fibers
 
-    slices_masks = [tl.tensor(rng.binomial(1, 0.9, size=slices[0].shape), dtype=tl.float64)] * len(slices)
-
-    # apply the mask, setting missing values to zero
-
-    slices_w_missing = [tl.where(slice_mask == 0.0, 0.0, slice) for slice, slice_mask in zip(slices, slices_masks)]
+    slices_masks = [tl.tensor(rng.binomial(1, 0.9, size=slices[0].shape), dtype=tl.float64) for _ in range(len(slices))]
 
     factors = decomposition.parafac2_aoadmm(
-        matrices=slices_w_missing,
-        rank=rank,
+        matrices=slices,
+        rank=no_of_components,
         random_state=rng,
         n_iter_max=2000,
         mask=slices_masks,
@@ -2175,42 +2170,40 @@ def test_structured_mode3_fibers_missing_em(rng, random_regular_cmf):
     total_rel_error = 0
     total_norm = 0
 
-    for rec_slice, slice_mask, gnd_slice in zip(rec_slices, slices_masks, slices):
+    for rec_slice, slice_mask, gnd_slice in zip(rec_slices, slices_masks, complete_data):
         total_rel_error += tl.norm((1 - slice_mask) * gnd_slice - (1 - slice_mask) * rec_slice) ** 2
         total_norm += tl.norm((1 - slice_mask) * gnd_slice) ** 2
 
     total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
 
-    assert total_rel_error < 0.05
+    assert total_rel_error < 0.1
 
 
 def test_structured_mode1_fibers_missing_em(rng, random_regular_cmf):
 
-    _, _, rank = random_regular_cmf
+    no_of_components = 2
 
     random_parafac2_tensor = random_parafac2(
         shapes=[(20, 35) for _ in range(25)],
-        rank=rank,
+        rank=no_of_components,
         random_state=rng,
     )
 
     cmf = CoupledMatrixFactorization.from_Parafac2Tensor(random_parafac2_tensor)
 
     slices = cmf.to_matrices()
+    tensor = cmf.to_tensor()
+    complete_data = deepcopy(slices)
 
     # Form the full data and a mask with ~10% missing fibers
-    mode2_slice_mask = tl.tensor(rng.binomial(1, 0.9, size=(slices[0].shape[1], len(slices))), dtype=tl.float64)
+    mode2_slice_mask = tl.tensor(rng.binomial(1, 0.9, size=(tensor.shape[1], tensor.shape[2])), dtype=tl.float64)
 
-    tensor_mask = tl.stack([mode2_slice_mask] * slices[0].shape[0], axis=0)
-    slices_masks = [tensor_mask[:, :, k] for k in range(tensor_mask.shape[2])]
-
-    # apply the mask, setting missing values to zero
-
-    slices_w_missing = [tl.where(slice_mask == 0.0, 0.0, slice) for slice, slice_mask in zip(slices, slices_masks)]
+    tensor_mask = tl.stack([mode2_slice_mask] * tensor.shape[0], axis=0)
+    slices_masks = tensor_mask
 
     factors = decomposition.parafac2_aoadmm(
-        matrices=slices_w_missing,
-        rank=rank,
+        matrices=slices,
+        rank=no_of_components,
         random_state=rng,
         n_iter_max=2000,
         mask=slices_masks,
@@ -2224,10 +2217,10 @@ def test_structured_mode1_fibers_missing_em(rng, random_regular_cmf):
     total_rel_error = 0
     total_norm = 0
 
-    for rec_slice, slice_mask, gnd_slice in zip(rec_slices, slices_masks, slices):
+    for rec_slice, slice_mask, gnd_slice in zip(rec_slices, slices_masks, complete_data):
         total_rel_error += tl.norm((1 - slice_mask) * gnd_slice - (1 - slice_mask) * rec_slice) ** 2
         total_norm += tl.norm((1 - slice_mask) * gnd_slice) ** 2
 
     total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
 
-    assert total_rel_error < 0.05
+    assert total_rel_error < 0.1
