@@ -988,7 +988,7 @@ def cmf_aoadmm(
     rec_errors = []
     feasibility_gaps = []
 
-    rec_error = _cmf_reconstruction_error(matrices, cmf, norm_matrices, intermediate_A_calculations=None)
+    rec_error = _cmf_reconstruction_error(matrices, cmf, norm_matrices, intermediate_A_calculations=None, mask=mask)
     rec_error /= norm_matrices
     rec_errors.append(rec_error)
     losses = []
@@ -1094,7 +1094,7 @@ def cmf_aoadmm(
 
                     continue
 
-            rec_error = _cmf_reconstruction_error(matrices, cmf, norm_matrices, intermediate_A_calculations)
+            rec_error = _cmf_reconstruction_error(matrices, cmf, norm_matrices, intermediate_A_calculations, mask=mask)
             rec_error /= norm_matrices
             rec_errors.append(rec_error)
             reg_penalty = (
