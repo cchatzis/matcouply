@@ -2093,9 +2093,10 @@ def test_update_imputed(rng, random_ragged_cmf):
         assert_allclose(imputed_tensor[slice_no], slices[slice_no])
 
 
+
 def test_randomly_missing_em(rng):
 
-    no_of_components = 2
+    no_of_components = 3
 
     random_parafac2_tensor = random_parafac2(
         shapes=[(20, 35) for _ in range(25)],
@@ -2117,6 +2118,7 @@ def test_randomly_missing_em(rng):
         rank=no_of_components,
         random_state=rng,
         n_iter_max=2000,
+        feasibility_tol=1e-5,
         mask=slices_masks,
     )
 
@@ -2133,12 +2135,12 @@ def test_randomly_missing_em(rng):
 
     total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
 
-    assert total_rel_error < 0.1
+    assert total_rel_error < 0.05
 
 
 def test_structured_mode3_fibers_missing_em(rng):
 
-    no_of_components = 2
+    no_of_components = 3
 
     random_parafac2_tensor = random_parafac2(
         shapes=[(20, 35) for _ in range(25)],
@@ -2160,6 +2162,7 @@ def test_structured_mode3_fibers_missing_em(rng):
         rank=no_of_components,
         random_state=rng,
         n_iter_max=2000,
+        feasibility_tol=1e-5,
         mask=slices_masks,
     )
 
@@ -2176,12 +2179,12 @@ def test_structured_mode3_fibers_missing_em(rng):
 
     total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
 
-    assert total_rel_error < 0.1
+    assert total_rel_error < 0.05
 
 
-def test_structured_mode1_fibers_missing_em(rng, random_regular_cmf):
+def test_structured_mode1_fibers_missing_em(rng):
 
-    no_of_components = 2
+    no_of_components = 3
 
     random_parafac2_tensor = random_parafac2(
         shapes=[(20, 35) for _ in range(25)],
@@ -2206,8 +2209,8 @@ def test_structured_mode1_fibers_missing_em(rng, random_regular_cmf):
         rank=no_of_components,
         random_state=rng,
         n_iter_max=2000,
+        feasibility_tol=1e-5,
         mask=slices_masks,
-        verbose=True,
     )
 
     # Check accuracy of imputed entries
@@ -2223,4 +2226,4 @@ def test_structured_mode1_fibers_missing_em(rng, random_regular_cmf):
 
     total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
 
-    assert total_rel_error < 0.1
+    assert total_rel_error < 0.05
