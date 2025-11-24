@@ -2093,7 +2093,6 @@ def test_update_imputed(rng, random_ragged_cmf):
         assert_allclose(imputed_tensor[slice_no], slices[slice_no])
 
 
-
 def test_randomly_missing_em(rng):
 
     no_of_components = 3
@@ -2207,6 +2206,165 @@ def test_structured_mode1_fibers_missing_em(rng):
     factors = decomposition.parafac2_aoadmm(
         matrices=slices,
         rank=no_of_components,
+        random_state=rng,
+        n_iter_max=2000,
+        feasibility_tol=1e-5,
+        mask=slices_masks,
+    )
+
+    # Check accuracy of imputed entries
+
+    rec_slices = factors.to_matrices()
+
+    total_rel_error = 0
+    total_norm = 0
+
+    for rec_slice, slice_mask, gnd_slice in zip(rec_slices, slices_masks, complete_data):
+        total_rel_error += tl.norm((1 - slice_mask) * gnd_slice - (1 - slice_mask) * rec_slice) ** 2
+        total_norm += tl.norm((1 - slice_mask) * gnd_slice) ** 2
+
+    total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
+
+    assert total_rel_error < 0.05
+
+
+def test_randomly_missing_nncmf_em(rng):
+
+    no_of_components = 3
+
+    shapes = tuple((20, 25) for _ in range(35))
+    weight, (A, B, D) = matcouply.random.random_coupled_matrices(shapes, rank=no_of_components, random_state=0)
+    A = tl.tensor(np.ones_like(A))
+
+    cmf = CoupledMatrixFactorization((weight, (A, B, D)))
+
+    slices = cmf.to_matrices()
+    complete_data = deepcopy(slices)
+
+    # Form the full data and a mask with ~10% missing values
+
+    slices_masks = [tl.tensor(rng.binomial(1, 0.9, size=tl.shape(slice)), dtype=tl.float64) for slice in slices]
+
+    weights, (A_init, B_init, D_init) = decomposition.initialize_cmf(
+        matrices=slices, rank=no_of_components, init="random", svd_fun="truncated_svd"
+    )
+
+    A_init = tl.tensor(np.ones_like(A_init))
+    cmf_init = weights, (A_init, B_init, D_init)
+
+    factors = decomposition.cmf_aoadmm(
+        matrices=slices,
+        rank=no_of_components,
+        regs=[[NonNegativity()], [NonNegativity()], [NonNegativity()]],
+        init=cmf_init,
+        update_A=False,
+        random_state=rng,
+        n_iter_max=2000,
+        feasibility_tol=1e-5,
+        mask=slices_masks,
+    )
+
+    # Check accuracy of imputed entries
+
+    rec_slices = factors.to_matrices()
+
+    total_rel_error = 0
+    total_norm = 0
+
+    for rec_slice, slice_mask, gnd_slice in zip(rec_slices, slices_masks, complete_data):
+        total_rel_error += tl.norm((1 - slice_mask) * gnd_slice - (1 - slice_mask) * rec_slice) ** 2
+        total_norm += tl.norm((1 - slice_mask) * gnd_slice) ** 2
+
+    total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
+
+    assert total_rel_error < 0.05
+
+
+def test_structured_mode3_fibers_missing_nncmf_em(rng):
+
+    no_of_components = 3
+
+    shapes = tuple((20, 25) for _ in range(35))
+    weight, (A, B, D) = matcouply.random.random_coupled_matrices(shapes, rank=no_of_components, random_state=0)
+    A = tl.tensor(np.ones_like(A))
+
+    cmf = CoupledMatrixFactorization((weight, (A, B, D)))
+
+    slices = cmf.to_matrices()
+    complete_data = deepcopy(slices)
+
+    # Form the full data and a mask with ~10% missing fibers
+
+    slices_masks = [tl.tensor(rng.binomial(1, 0.9, size=slices[0].shape), dtype=tl.float64) for _ in range(len(slices))]
+
+    weights, (A_init, B_init, D_init) = decomposition.initialize_cmf(
+        matrices=slices, rank=no_of_components, init="random", svd_fun="truncated_svd"
+    )
+
+    A_init = tl.tensor(np.ones_like(A_init))
+    cmf_init = weights, (A_init, B_init, D_init)
+
+    factors = decomposition.cmf_aoadmm(
+        matrices=slices,
+        rank=no_of_components,
+        regs=[[NonNegativity()], [NonNegativity()], [NonNegativity()]],
+        init=cmf_init,
+        update_A=False,
+        random_state=rng,
+        n_iter_max=2000,
+        feasibility_tol=1e-5,
+        mask=slices_masks,
+    )
+
+    # Check accuracy of imputed entries
+
+    rec_slices = factors.to_matrices()
+
+    total_rel_error = 0
+    total_norm = 0
+
+    for rec_slice, slice_mask, gnd_slice in zip(rec_slices, slices_masks, complete_data):
+        total_rel_error += tl.norm((1 - slice_mask) * gnd_slice - (1 - slice_mask) * rec_slice) ** 2
+        total_norm += tl.norm((1 - slice_mask) * gnd_slice) ** 2
+
+    total_rel_error = np.sqrt(total_rel_error) / np.sqrt(total_norm)
+
+    assert total_rel_error < 0.05
+
+
+def test_structured_mode1_fibers_missing_nncmf_em(rng):
+
+    no_of_components = 3
+
+    shapes = tuple((20, 25) for _ in range(35))
+    weight, (A, B, D) = matcouply.random.random_coupled_matrices(shapes, rank=no_of_components, random_state=0)
+    A = tl.tensor(np.ones_like(A))
+
+    cmf = CoupledMatrixFactorization((weight, (A, B, D)))
+
+    slices = cmf.to_matrices()
+    tensor = cmf.to_tensor()
+    complete_data = deepcopy(slices)
+
+    # Form the full data and a mask with ~10% missing fibers
+    mode2_slice_mask = tl.tensor(rng.binomial(1, 0.9, size=(tensor.shape[1], tensor.shape[2])), dtype=tl.float64)
+
+    tensor_mask = tl.stack([mode2_slice_mask] * tensor.shape[0], axis=0)
+    slices_masks = tensor_mask
+
+    weights, (A_init, B_init, D_init) = decomposition.initialize_cmf(
+        matrices=slices, rank=no_of_components, init="random", svd_fun="truncated_svd"
+    )
+
+    A_init = tl.tensor(np.ones_like(A_init))
+    cmf_init = weights, (A_init, B_init, D_init)
+
+    factors = decomposition.cmf_aoadmm(
+        matrices=slices,
+        rank=no_of_components,
+        regs=[[NonNegativity()], [NonNegativity()], [NonNegativity()]],
+        init=cmf_init,
+        update_A=False,
         random_state=rng,
         n_iter_max=2000,
         feasibility_tol=1e-5,
