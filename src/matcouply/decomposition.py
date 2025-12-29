@@ -941,13 +941,9 @@ def cmf_aoadmm(
 
     # Initial missing imputation
     if mask is not None:
-
         if init == "random" or init == "svd" or init == "threshold_svd":
-
             matrices = _update_imputed(tensor_slices=list(matrices), mask=mask, decomposition=None, method="mode-3")
-
         else:  # If factors are provided from a "warmer" start (e.g. parafac2_als) use the factor estimates as initial guesses
-
             matrices = _update_imputed(tensor_slices=list(matrices), mask=mask, decomposition=cmf, method="factors")
 
     regs = _parse_all_penalties(
