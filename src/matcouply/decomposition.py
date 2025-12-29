@@ -38,22 +38,16 @@ def _update_imputed(tensor_slices, mask, decomposition, method):
     -------
     tensor_slices : Iterable of ndarray
     """
-
     if method == "mode-3":
-
         for slice_no, (slice, slice_mask) in enumerate(zip(tensor_slices, mask)):
-
             slice_mean = tl.sum(slice * slice_mask) / tl.sum(slice_mask)
-
             tensor_slices[slice_no] = tl.where(slice_mask == 0, slice_mean, tensor_slices[slice_no])
 
-    else:  # factors
-
+    else:
         reconstructed_slices = cmf_to_matrices(decomposition)
         tensor_slices = list(tensor_slices)
 
         for slice_no, (slice, rec_slice, slice_mask) in enumerate(zip(tensor_slices, reconstructed_slices, mask)):
-
             tensor_slices[slice_no] = tl.where(slice_mask == 0, rec_slice, slice)
 
     return tensor_slices
