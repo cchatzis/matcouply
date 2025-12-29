@@ -1468,10 +1468,6 @@ class LDSPenalty(MatricesPenalty):
     @copy_ancestor_docstring
     def factor_matrices_update(self, factor_matrices, feasibility_penalties, auxes):
 
-        # factor_matrices: factor + mus
-        # feasability_penalties: rhos
-        # auxes: -||-
-
         B_is = factor_matrices
         rhos = feasibility_penalties
         J = B_is[0].shape[-2]
