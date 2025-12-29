@@ -853,7 +853,6 @@ class TestLDSPenalty(BaseTestFactorMatricesPenalty):
     max_rows = n_rows
 
     def test_penalty(self, rng, random_regular_cmf):
-        # Check that the penalty term is computed correctly.
 
         penalty = self.PenaltyType(**self.penalty_default_kwargs)
         cmf, random_ragged_shapes, rank = random_regular_cmf
@@ -870,7 +869,7 @@ class TestLDSPenalty(BaseTestFactorMatricesPenalty):
         assert_allclose(penalty.penalty(B_is), penalty_term)
 
     def get_invariant_matrices(self, rng, shapes):
-        # Generate a list of invariant matrices that will not be changed by the proximal operator.
+        """Generate a list of invariant matrices that will not be changed by the proximal operator."""
 
         penalty = self.PenaltyType(**self.penalty_default_kwargs)
         K = len(shapes)
@@ -883,7 +882,7 @@ class TestLDSPenalty(BaseTestFactorMatricesPenalty):
         return invariant_matrices
 
     def get_non_invariant_matrices(self, rng, shapes):
-        # Generate a list of invariant matrices that will be changed by the proximal operator.
+        """Generate a list of invariant matrices that will be changed by the proximal operator."""
 
         K = len(shapes)
 
