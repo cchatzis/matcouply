@@ -464,51 +464,58 @@ def compute_feasibility_gaps(cmf, regs, A_aux_list, B_aux_list, C_aux_list):
     return A_gaps, B_gaps, C_gaps
 
 
-def _cmf_reconstruction_error(matrices, cmf, norm_matrices=None, intermediate_A_calculations=None, mask=None):
+def _cmf_reconstruction_error(matrices, cmf, norm_matrices=None, intermediate_A_calculations=None,mask=None):
 
-    if mask is None:  # In fully observed data, we can utilize pre-computations
-
-        if norm_matrices is None:
-            norm_X_sq = sum(tl.sum(matrix**2) for matrix in matrices)
-        else:
-            norm_X_sq = norm_matrices**2
-
-        weights, (A, B_is, C) = cmf
-        if weights is not None:
-            A = A * weights
-
-        if intermediate_A_calculations is None:
-            norm_cmf_sq = 0
-            inner_product = 0
-            CtC = tl.dot(tl.transpose(C), C)
-
-            for i, B_i in enumerate(B_is):
-                B_i = B_i * A[i]
-                if tl.shape(B_i)[0] > tl.shape(C)[0]:
-                    tmp = tl.dot(tl.transpose(B_i), matrices[i])
-                    inner_product += tl.trace(tl.dot(tmp, C))
-                else:
-                    tmp = tl.dot(matrices[i], C)
-                    inner_product += tl.trace(tl.dot(tl.transpose(B_i), tmp))
-
-                norm_cmf_sq += tl.sum((B_i.T @ B_i) * CtC)
-        else:
-            A_rhses, cross_products = intermediate_A_calculations
-
-            inner_product = sum(tl.sum(A_rhs_i * ai) for A_rhs_i, ai in zip(A_rhses, A))
-            norm_cmf_sq = sum(tl.sum(tl.diag(ai) @ cross_products[i] @ tl.diag(ai)) for i, ai in enumerate(A))
-
-        # Threshold to handle roundoff errors with very small error
-        return np.sqrt(tl.to_numpy(max(0, norm_X_sq - 2 * inner_product + norm_cmf_sq)))
-
+    if mask is None:
+        return _cmf_reconstruction_error_without_mask(matrices,cmf,norm_matrices,intermediate_A_calculations)
     else:
+        return _cmf_reconstruction_error_with_mask(matrices,cmf,mask)
 
-        reconstructed_matrices = cmf_to_matrices(cmf)
-        total_error = 0
-        for i, (slice, slice_mask) in enumerate(zip(matrices, mask)):
-            total_error += tl.norm(slice_mask * slice - slice_mask * reconstructed_matrices[i]) ** 2
 
-        return tl.sqrt(total_error)
+def _cmf_reconstruction_error_without_mask(matrices, cmf, norm_matrices=None, intermediate_A_calculations=None):
+
+    if norm_matrices is None:
+        norm_X_sq = sum(tl.sum(matrix**2) for matrix in matrices)
+    else:
+        norm_X_sq = norm_matrices**2
+
+    weights, (A, B_is, C) = cmf
+    if weights is not None:
+        A = A * weights
+
+    if intermediate_A_calculations is None:
+        norm_cmf_sq = 0
+        inner_product = 0
+        CtC = tl.dot(tl.transpose(C), C)
+
+        for i, B_i in enumerate(B_is):
+            B_i = B_i * A[i]
+            if tl.shape(B_i)[0] > tl.shape(C)[0]:
+                tmp = tl.dot(tl.transpose(B_i), matrices[i])
+                inner_product += tl.trace(tl.dot(tmp, C))
+            else:
+                tmp = tl.dot(matrices[i], C)
+                inner_product += tl.trace(tl.dot(tl.transpose(B_i), tmp))
+
+            norm_cmf_sq += tl.sum((B_i.T @ B_i) * CtC)
+    else:
+        A_rhses, cross_products = intermediate_A_calculations
+
+        inner_product = sum(tl.sum(A_rhs_i * ai) for A_rhs_i, ai in zip(A_rhses, A))
+        norm_cmf_sq = sum(tl.sum(tl.diag(ai) @ cross_products[i] @ tl.diag(ai)) for i, ai in enumerate(A))
+
+    # Threshold to handle roundoff errors with very small error
+    return np.sqrt(tl.to_numpy(max(0, norm_X_sq - 2 * inner_product + norm_cmf_sq)))
+
+    
+def _cmf_reconstruction_error_with_mask(matrices, cmf, mask=None):
+
+    reconstructed_matrices = cmf_to_matrices(cmf)
+    total_error = 0
+    for i, (slice, slice_mask) in enumerate(zip(matrices, mask)):
+        total_error += tl.norm(slice_mask * slice - slice_mask * reconstructed_matrices[i]) ** 2
+
+    return tl.sqrt(total_error)
 
 
 def _listify(input_value, param_name):
@@ -988,7 +995,7 @@ def cmf_aoadmm(
     rec_errors = []
     feasibility_gaps = []
 
-    rec_error = _cmf_reconstruction_error(matrices, cmf, norm_matrices, intermediate_A_calculations=None, mask=mask)
+    rec_error = _cmf_reconstruction_error(matrices=matrices, cmf=cmf, norm_matrices=norm_matrices,intermediate_A_calculations=None,mask=mask)
     rec_error /= norm_matrices
     rec_errors.append(rec_error)
     losses = []
@@ -1094,7 +1101,7 @@ def cmf_aoadmm(
 
                     continue
 
-            rec_error = _cmf_reconstruction_error(matrices, cmf, norm_matrices, intermediate_A_calculations, mask=mask)
+            rec_error = _cmf_reconstruction_error(matrices=matrices,cmf=cmf,norm_matrices=norm_matrices,intermediate_A_calculations=intermediate_A_calculations,mask=mask)
             rec_error /= norm_matrices
             rec_errors.append(rec_error)
             reg_penalty = (
