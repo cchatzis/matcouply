@@ -51,42 +51,34 @@ def fit_many_parafac2(X, num_components, num_inits=5):
                     verbose=0,
                 )
                 
-        if best_err > trial_errs.rec_errors[-1]:
-            best_err = trial_errs.rec_errors[-1]
-            decomposition = trial_decomposition # note, with real data, convergence should be checked
+        if best_err < trial_errs.rec_errors[-1]:
+            continue
+    
+        best_err = trial_errs.rec_errors[-1]
+        decomposition = trial_decomposition # note, with real data, convergence should be checked
 
         (est_weights, (est_A, est_B, est_C)) = decomposition
         est_B = np.asarray(est_B)
 
-        # normalize factors
-        As = np.empty(est_A.shape)
-        Bs = np.empty(est_B.shape)
-        Cs = np.empty(est_C.shape)
+        # Normalize the decomposition:
+        A_norm = tl.norm(est_A, axis=0)
+        B_norm = tl.norm(est_B[0], axis=0)  # This is the same for all B_i because of the PARAFAC2 constraint
+        C_norm = tl.norm(est_C, axis=0)
+        est_weights = A_norm * B_norm * C_norm  # The PARAFAC2 AO-ADMM returns None as the weights
 
-        K = As.shape[0]
-        for r in range(num_components):
-            norm_Ar = tl.norm(est_A[:, r])
-            norm_Cr = tl.norm(est_C[:, r])
-            As[:, r] = est_A[:, r] / norm_Ar
-            Cs[:, r] = est_C[:, r] / norm_Cr
-
-            for k in range(K):
-                norm_Brk = tl.norm(est_B[k][:, r])
-                Bs[k,:,r] = est_B[k,:,r] / norm_Brk
+        As = est_A / A_norm
+        Bs = [est_B_i / B_norm for est_B_i in est_B]
+        Cs = est_C / C_norm
 
         # calculate scaled B; 
         # since the loadings in B are specific to levels of A, we absorb A into the corresponding B for each component
-        aB = np.empty(Bs.shape)
-        for r in range(num_components):
-            for k in range(As.shape[0]):
-                aB[k,:,r] = As[k,r] * Bs[k,:,r]  
+        aB = [a_i * B_i for a_i, B_i in zip(As, Bs)]
 
-
-    return (est_weights, (Cs, aB))  
+    return (est_weights, (aB, Cs))
 
 
 ###############################################################################
-# Creat simulated data
+# Generate simulated data
 # ^^^^^^^^^^^^^^^^^^^^^^^
 #
 # Simulate noisy data with 2 components.
@@ -192,8 +184,8 @@ for rank in models.keys():
             for j, model_j in enumerate(current_models):
                 if i >= j:  # include every pair only once and omit i == j
                     continue
-                weights_i, (C_i, _) = model_i
-                weights_j, (C_j, _) = model_j
+                weights_i, (_, C_i) = model_i
+                weights_j, (_, C_j) = model_j
                 fms = congruence_coefficient(C_i, C_j)[0]
                 replicability_stability[rank].append(fms)
 
@@ -226,8 +218,8 @@ for rank in models.keys():
             for j, model_j in enumerate(models[rank][repeat]):
                 if i >= j:  # include every pair only once and omit i == j
                     continue
-                weights_i, (C_i, aB_i) = model_i
-                weights_j, (C_j, aB_j) = model_j
+                weights_i, (aB_i, C_i) = model_i
+                weights_j, (aB_j, C_j) = model_j
 
                 indices_subset_i = sorted(split_indices[rank][repeat][i])
                 indices_subset_j = sorted(split_indices[rank][repeat][j])
@@ -240,10 +232,10 @@ for rank in models.keys():
                     indices2use_i.append(indices_subset_i.index(common_idx))
                     indices2use_j.append(indices_subset_j.index(common_idx))
 
-                aB_i = aB_i[indices2use_i, :, :]
-                aB_j = aB_j[indices2use_j, :, :]
+                aB_i = np.concatenate([aB_i[idx] for idx in indices2use_i])
+                aB_j = np.concatenate([aB_j[idx] for idx in indices2use_j])
                 fms = tlviz.factor_tools.factor_match_score(
-                    (weights_i, (C_i, aB_i.reshape(-1, aB_i.shape[2]))), (weights_j, (C_j, aB_j.reshape(-1, aB_j.shape[2]))), consider_weights=False
+                    (weights_i, (C_i, aB_i)), (weights_j, (C_j, aB_j)), consider_weights=False
                 )
                 replicability_alt[rank].append(fms)
 

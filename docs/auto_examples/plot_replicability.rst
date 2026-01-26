@@ -61,7 +61,7 @@ To fit PARAFAC2 models, we need to solve a non-convex optimization problem, poss
 therefore useful to fit several models with the same number of components using many different random
 initialisations.
 
-.. GENERATED FROM PYTHON SOURCE LINES 31-88
+.. GENERATED FROM PYTHON SOURCE LINES 31-80
 
 .. code-block:: Python
 
@@ -88,38 +88,30 @@ initialisations.
                         verbose=0,
                     )
                 
-            if best_err > trial_errs.rec_errors[-1]:
-                best_err = trial_errs.rec_errors[-1]
-                decomposition = trial_decomposition # note, with real data, convergence should be checked
+            if best_err < trial_errs.rec_errors[-1]:
+                continue
+    
+            best_err = trial_errs.rec_errors[-1]
+            decomposition = trial_decomposition # note, with real data, convergence should be checked
 
             (est_weights, (est_A, est_B, est_C)) = decomposition
             est_B = np.asarray(est_B)
 
-            # normalize factors
-            As = np.empty(est_A.shape)
-            Bs = np.empty(est_B.shape)
-            Cs = np.empty(est_C.shape)
+            # Normalize the decomposition:
+            A_norm = tl.norm(est_A, axis=0)
+            B_norm = tl.norm(est_B[0], axis=0)  # This is the same for all B_i because of the PARAFAC2 constraint
+            C_norm = tl.norm(est_C, axis=0)
+            est_weights = A_norm * B_norm * C_norm  # The PARAFAC2 AO-ADMM returns None as the weights
 
-            K = As.shape[0]
-            for r in range(num_components):
-                norm_Ar = tl.norm(est_A[:, r])
-                norm_Cr = tl.norm(est_C[:, r])
-                As[:, r] = est_A[:, r] / norm_Ar
-                Cs[:, r] = est_C[:, r] / norm_Cr
-
-                for k in range(K):
-                    norm_Brk = tl.norm(est_B[k][:, r])
-                    Bs[k,:,r] = est_B[k,:,r] / norm_Brk
+            As = est_A / A_norm
+            Bs = [est_B_i / B_norm for est_B_i in est_B]
+            Cs = est_C / C_norm
 
             # calculate scaled B; 
             # since the loadings in B are specific to levels of A, we absorb A into the corresponding B for each component
-            aB = np.empty(Bs.shape)
-            for r in range(num_components):
-                for k in range(As.shape[0]):
-                    aB[k,:,r] = As[k,r] * Bs[k,:,r]  
+            aB = [a_i * B_i for a_i, B_i in zip(As, Bs)]
 
-
-        return (est_weights, (Cs, aB))  
+        return (est_weights, (aB, Cs))
 
 
 
@@ -129,14 +121,14 @@ initialisations.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 89-93
+.. GENERATED FROM PYTHON SOURCE LINES 81-85
 
-Creat simulated data
+Generate simulated data
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 Simulate noisy data with 2 components.
 
-.. GENERATED FROM PYTHON SOURCE LINES 93-121
+.. GENERATED FROM PYTHON SOURCE LINES 85-113
 
 .. code-block:: Python
 
@@ -175,7 +167,7 @@ Simulate noisy data with 2 components.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 122-132
+.. GENERATED FROM PYTHON SOURCE LINES 114-124
 
 The replicability analysis boils down to the following steps:
 
@@ -188,12 +180,12 @@ The replicability analysis boils down to the following steps:
 5. Repeat the above process :math:`M` times (user-chosen), to find a total of
    :math:`M \binom{N}{2}` comparisons.
 
-.. GENERATED FROM PYTHON SOURCE LINES 135-137
+.. GENERATED FROM PYTHON SOURCE LINES 127-129
 
 Split the data and fit PARAFAC2 on each data subset
 ^^^^^^^^^^^^^^^^^^
 
-.. GENERATED FROM PYTHON SOURCE LINES 137-168
+.. GENERATED FROM PYTHON SOURCE LINES 129-160
 
 .. code-block:: Python
 
@@ -244,7 +236,7 @@ Split the data and fit PARAFAC2 on each data subset
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 169-180
+.. GENERATED FROM PYTHON SOURCE LINES 161-172
 
 Often, the mode we will be splitting within refers to different samples,
 depending on the use-case, it might be reasonable to retain the
@@ -258,14 +250,14 @@ For example, in this case we normalize each subset to unit norm independently.
 Note, that ``for split_no, (train_index, _) in enumerate(rskf.split(dataset)):`` may be run in parallel
 for efficiency.
 
-.. GENERATED FROM PYTHON SOURCE LINES 182-186
+.. GENERATED FROM PYTHON SOURCE LINES 174-178
 
 Compute and assess replicability I.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Since we are subsetting the data on ``mode=0``, and the ``mode=1`` factors of PARAFAC2 are specific 
 to the corresponding level in ``mode=0``, only the shared factor matrix can be compared using FMS: 
 
-.. GENERATED FROM PYTHON SOURCE LINES 186-209
+.. GENERATED FROM PYTHON SOURCE LINES 178-201
 
 .. code-block:: Python
 
@@ -278,8 +270,8 @@ to the corresponding level in ``mode=0``, only the shared factor matrix can be c
                 for j, model_j in enumerate(current_models):
                     if i >= j:  # include every pair only once and omit i == j
                         continue
-                    weights_i, (C_i, _) = model_i
-                    weights_j, (C_j, _) = model_j
+                    weights_i, (_, C_i) = model_i
+                    weights_j, (_, C_j) = model_j
                     fms = congruence_coefficient(C_i, C_j)[0]
                     replicability_stability[rank].append(fms)
 
@@ -304,12 +296,12 @@ to the corresponding level in ``mode=0``, only the shared factor matrix can be c
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 210-212
+.. GENERATED FROM PYTHON SOURCE LINES 202-204
 
 Here, we observe that over-estimating the number of components
 results in a loss of replicable of the patterns, indicated by low FMS.
 
-.. GENERATED FROM PYTHON SOURCE LINES 214-220
+.. GENERATED FROM PYTHON SOURCE LINES 206-212
 
 Compute and assess replicability II.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -318,7 +310,7 @@ including the factors corresponding to ``mode=0``, and ``mode=1`` :cite:p:`erdos
 By using only the indices present in both subsets (e.g. the factors 
 corresponding to the subjects' data included in both factorizations)
 
-.. GENERATED FROM PYTHON SOURCE LINES 220-259
+.. GENERATED FROM PYTHON SOURCE LINES 212-251
 
 .. code-block:: Python
 
@@ -331,8 +323,8 @@ corresponding to the subjects' data included in both factorizations)
                 for j, model_j in enumerate(models[rank][repeat]):
                     if i >= j:  # include every pair only once and omit i == j
                         continue
-                    weights_i, (C_i, aB_i) = model_i
-                    weights_j, (C_j, aB_j) = model_j
+                    weights_i, (aB_i, C_i) = model_i
+                    weights_j, (aB_j, C_j) = model_j
 
                     indices_subset_i = sorted(split_indices[rank][repeat][i])
                     indices_subset_j = sorted(split_indices[rank][repeat][j])
@@ -345,10 +337,10 @@ corresponding to the subjects' data included in both factorizations)
                         indices2use_i.append(indices_subset_i.index(common_idx))
                         indices2use_j.append(indices_subset_j.index(common_idx))
 
-                    aB_i = aB_i[indices2use_i, :, :]
-                    aB_j = aB_j[indices2use_j, :, :]
+                    aB_i = np.concatenate([aB_i[idx] for idx in indices2use_i])
+                    aB_j = np.concatenate([aB_j[idx] for idx in indices2use_j])
                     fms = tlviz.factor_tools.factor_match_score(
-                        (weights_i, (C_i, aB_i.reshape(-1, aB_i.shape[2]))), (weights_j, (C_j, aB_j.reshape(-1, aB_j.shape[2]))), consider_weights=False
+                        (weights_i, (C_i, aB_i)), (weights_j, (C_j, aB_j)), consider_weights=False
                     )
                     replicability_alt[rank].append(fms)
 
@@ -373,7 +365,7 @@ corresponding to the subjects' data included in both factorizations)
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 260-265
+.. GENERATED FROM PYTHON SOURCE LINES 252-257
 
 ``common_indices`` contains the indices (e.g. subjects/samples) present in both subsets,
 but since the position of each index can change (e.g. sample no 3 is not guaranteeed at
@@ -385,7 +377,7 @@ Similar results can be observed with this approach in terms of the replicability
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (8 minutes 4.271 seconds)
+   **Total running time of the script:** (12 minutes 12.010 seconds)
 
 
 .. _sphx_glr_download_auto_examples_plot_replicability.py:
