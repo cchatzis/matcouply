@@ -24,7 +24,7 @@ copyright = "2022, Marie Roald"
 author = "Marie Roald"
 
 # The full version, including alpha/beta/rc tags
-release = "0.1.6"
+release = "0.2.0"
 
 
 # -- General configuration ---------------------------------------------------
