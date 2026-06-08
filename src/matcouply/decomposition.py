@@ -864,7 +864,7 @@ def cmf_aoadmm(
     verbose : bool or int (default=False)
         If ``True``, then a message with convergence info will be printed out every iteration.
         If ``int > 1``, then a message with convergence info will be printed out ever ``verbose`` iteration.
-    mask : ndarray, optional
+    mask : list of ndarray, optional
         An array with the same shape as the tensor. It should be 0 where there are missing values and 1 everywhere else.
 
     Returns
@@ -941,6 +941,12 @@ def cmf_aoadmm(
 
     # Initial missing imputation
     if mask is not None:
+
+        # Raise warning if a mode-2 fiber is completely missing
+        for i, mask_slice in enumerate(mask):
+            if tl.sum(mask_slice,axis=1).min() == 0:
+                print(f"Warning: Slice {i} contains a mode-2 fiber that is completely missing. Such entries cannot be imputed without additional constraints on the evolving mode.")
+
         if init == "random" or init == "svd" or init == "threshold_svd":
             matrices = _update_imputed(tensor_slices=list(matrices), mask=mask, decomposition=None, method="mode-3")
         else:  # If factors are provided from a "warmer" start (e.g. parafac2_als) use the factor estimates as initial guesses
