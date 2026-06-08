@@ -2198,11 +2198,14 @@ def test_structured_mode1_fibers_missing_em(rng):
     tensor = cmf.to_tensor()
     complete_data = deepcopy(slices)
 
-    # Form the full data and a mask with ~10% missing fibers
-    mode2_slice_mask = tl.tensor(rng.binomial(1, 0.9, size=(tensor.shape[1], tensor.shape[2])), dtype=tl.float64)
+    # Sample which columns are observed for each slice independently: shape (I, K)
+    col_patterns = rng.binomial(1, 0.9, size=(tensor.shape[0], tensor.shape[2]))
 
-    tensor_mask = tl.stack([mode2_slice_mask] * tensor.shape[0], axis=0)
-    slices_masks = tensor_mask
+    # Each mask: broadcast (K,) → (J, K) by tiling across rows
+    slices_masks = [
+        tl.tensor(np.tile(col_patterns[i], (tensor.shape[1], 1)), dtype=tl.float64)
+        for i in range(tensor.shape[0])
+    ]
 
     factors = decomposition.parafac2_aoadmm(
         matrices=slices,
@@ -2348,11 +2351,14 @@ def test_structured_mode1_fibers_missing_nncmf_em(rng):
     tensor = cmf.to_tensor()
     complete_data = deepcopy(slices)
 
-    # Form the full data and a mask with ~10% missing fibers
-    mode2_slice_mask = tl.tensor(rng.binomial(1, 0.9, size=(tensor.shape[1], tensor.shape[2])), dtype=tl.float64)
+    # Sample which columns are observed for each slice independently: shape (I, K)
+    col_patterns = rng.binomial(1, 0.9, size=(tensor.shape[0], tensor.shape[2]))
 
-    tensor_mask = tl.stack([mode2_slice_mask] * tensor.shape[0], axis=0)
-    slices_masks = tensor_mask
+    # Each mask: broadcast (K,) → (J, K) by tiling across rows
+    slices_masks = [
+        tl.tensor(np.tile(col_patterns[i], (tensor.shape[1], 1)), dtype=tl.float64)
+        for i in range(tensor.shape[0])
+    ]
 
     weights, (A_init, B_init, D_init) = decomposition.initialize_cmf(
         matrices=slices, rank=no_of_components, init="random", svd_fun="truncated_svd"
