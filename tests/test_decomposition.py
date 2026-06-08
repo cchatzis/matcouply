@@ -2154,7 +2154,8 @@ def test_structured_mode3_fibers_missing_em(rng):
 
     # Form the full data and a mask with ~10% missing fibers
 
-    slices_masks = [tl.tensor(rng.binomial(1, 0.9, size=slices[0].shape), dtype=tl.float64) for _ in range(len(slices))]
+    slice_mask = tl.tensor(rng.binomial(1, 0.9, size=slices[0].shape), dtype=tl.float64)
+    slices_masks = [deepcopy(slice_mask) for _ in range(len(slices))]
 
     factors = decomposition.parafac2_aoadmm(
         matrices=slices,
@@ -2295,7 +2296,8 @@ def test_structured_mode3_fibers_missing_nncmf_em(rng):
 
     # Form the full data and a mask with ~10% missing fibers
 
-    slices_masks = [tl.tensor(rng.binomial(1, 0.9, size=slices[0].shape), dtype=tl.float64) for _ in range(len(slices))]
+    slice_mask = tl.tensor(rng.binomial(1, 0.9, size=slices[0].shape), dtype=tl.float64)
+    slices_masks = [deepcopy(slice_mask) for _ in range(len(slices))]
 
     weights, (A_init, B_init, D_init) = decomposition.initialize_cmf(
         matrices=slices, rank=no_of_components, init="random", svd_fun="truncated_svd"
