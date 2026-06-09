@@ -38,12 +38,104 @@ def _update_imputed(tensor_slices, mask, decomposition, method):
     -------
     tensor_slices : Iterable of ndarray
     """
-    if method == "mode-3":
+    
+    if method == "mode3slices":
         for slice_no, (slice, slice_mask) in enumerate(zip(tensor_slices, mask)):
             slice_mean = tl.sum(slice * slice_mask) / tl.sum(slice_mask)
             tensor_slices[slice_no] = tl.where(slice_mask == 0, slice_mean, tensor_slices[slice_no])
 
-    else:
+    elif method == "mode1slices":
+
+        maxI = np.max([slice.shape[0] for slice in tensor_slices])
+        slice_means = np.zeros(maxI)
+
+        # mode1 dimension can be not the same for all slices
+
+        for i in range(maxI): # compute the mean per mode1 slice
+            slice_sum = 0
+            slice_entry_count = 0
+
+            for slice, slice_mask in zip(tensor_slices, mask):
+                if i < slice.shape[0]:
+                    slice_sum += tl.sum(slice[i] * slice_mask[i])
+                    slice_entry_count += tl.sum(slice_mask[i])
+
+            slice_means[i] = slice_sum / slice_entry_count
+
+        # update missing entries according to mode1 slice means
+
+        for slice_no, (slice, slice_mask) in enumerate(zip(tensor_slices, mask)):
+            for i in range(slice.shape[0]):
+                tensor_slices[slice_no][i,:] = tl.where(slice_mask[i,:] == 0, slice_means[i], tensor_slices[slice_no][i,:])
+
+    elif method == "mode2slices":
+
+        J = tensor_slices[0].shape[1] # this is the same for all slices
+        slice_means = np.zeros(J)
+
+        for j in range(J):
+            slice_sum = 0
+            slice_entry_count = 0
+
+            for slice, slice_mask in zip(tensor_slices, mask):
+                slice_sum += tl.sum(slice[:,j] * slice_mask[:,j])
+                slice_entry_count += tl.sum(slice_mask[:,j])
+
+            slice_means[j] = slice_sum / slice_entry_count
+
+        # update missing entries according to mode2 slice means
+
+        for slice_no, (slice, slice_mask) in enumerate(zip(tensor_slices, mask)):
+            for j in range(J):
+                tensor_slices[slice_no][:,j] = tl.where(slice_mask[:,j] == 0, slice_means[j], tensor_slices[slice_no][:,j])
+
+    elif method == "mode1fibers":
+
+        # mode1fibers essentially allow the first mode to change and fix the other two
+
+        for slice_no, (slice, slice_mask) in enumerate(zip(tensor_slices, mask)):
+            for j in range(slice.shape[1]):
+                fiber_mean = tl.sum(slice[:,j] * slice_mask[:,j]) / tl.sum(slice_mask[:,j])
+                tensor_slices[slice_no][:,j] = tl.where(slice_mask[:,j] == 0, fiber_mean, tensor_slices[slice_no][:,j])
+
+    elif method == "mode2fibers":
+
+        for slice_no, (slice, slice_mask) in enumerate(zip(tensor_slices, mask)):
+            for i in range(slice.shape[0]):
+                fiber_mean = tl.sum(slice[i,:] * slice_mask[i,:]) / tl.sum(slice_mask[i,:])
+                tensor_slices[slice_no][i,:] = tl.where(slice_mask[i,:] == 0, fiber_mean, tensor_slices[slice_no][i,:])
+
+    elif method == "mode3fibers":
+
+        maxI = np.max([slice.shape[0] for slice in tensor_slices])
+        J = tensor_slices[0].shape[1] # this is the same for all slices
+
+        fiber_means = np.zeros((maxI, J))
+
+        for i in range(maxI):
+            for j in range(J):
+                fiber_sum = 0
+                fiber_entry_count = 0
+
+                for slice, slice_mask in zip(tensor_slices, mask):
+                    if i < slice.shape[0]:
+                        fiber_sum += slice[i,j] * slice_mask[i,j]
+                        fiber_entry_count += slice_mask[i,j]
+
+                fiber_means[i,j] = fiber_sum / fiber_entry_count
+
+
+        for slice_no, (slice, slice_mask) in enumerate(zip(tensor_slices, mask)):
+            for i in range(slice.shape[0]):
+                for j in range(slice.shape[1]):
+                    tensor_slices[slice_no][i,j] = tl.where(slice_mask[i,j] == 0, fiber_means[i,j], tensor_slices[slice_no][i,j])
+
+    elif method == "zero":
+
+        for slice_no, (slice, slice_mask) in enumerate(zip(tensor_slices, mask)):
+            tensor_slices[slice_no] = tl.where(slice_mask == 0, 0, slice)
+
+    else: # "factors"
         reconstructed_slices = cmf_to_matrices(decomposition)
         tensor_slices = list(tensor_slices)
 
@@ -458,12 +550,12 @@ def compute_feasibility_gaps(cmf, regs, A_aux_list, B_aux_list, C_aux_list):
     return A_gaps, B_gaps, C_gaps
 
 
-def _cmf_reconstruction_error(matrices, cmf, norm_matrices=None, intermediate_A_calculations=None,mask=None):
+def _cmf_reconstruction_error(matrices, cmf, norm_matrices=None, intermediate_A_calculations=None, mask=None):
 
     if mask is None:
-        return _cmf_reconstruction_error_without_mask(matrices,cmf,norm_matrices,intermediate_A_calculations)
+        return _cmf_reconstruction_error_without_mask(matrices, cmf, norm_matrices, intermediate_A_calculations)
     else:
-        return _cmf_reconstruction_error_with_mask(matrices,cmf,mask)
+        return _cmf_reconstruction_error_with_mask(matrices, cmf, mask)
 
 
 def _cmf_reconstruction_error_without_mask(matrices, cmf, norm_matrices=None, intermediate_A_calculations=None):
@@ -501,7 +593,7 @@ def _cmf_reconstruction_error_without_mask(matrices, cmf, norm_matrices=None, in
     # Threshold to handle roundoff errors with very small error
     return np.sqrt(tl.to_numpy(max(0, norm_X_sq - 2 * inner_product + norm_cmf_sq)))
 
-    
+
 def _cmf_reconstruction_error_with_mask(matrices, cmf, mask=None):
 
     reconstructed_matrices = cmf_to_matrices(cmf)
@@ -754,6 +846,7 @@ def cmf_aoadmm(
     return_errors=False,
     verbose=False,
     mask=None,
+    impute="mode3fibers",
 ):
     r"""Fit a regularized coupled matrix factorization model with AO-ADMM
 
@@ -866,6 +959,8 @@ def cmf_aoadmm(
         If ``int > 1``, then a message with convergence info will be printed out ever ``verbose`` iteration.
     mask : list of ndarray, optional
         An array with the same shape as the tensor. It should be 0 where there are missing values and 1 everywhere else.
+    impute : ``mode1fibers``, ``mode2fibers``, ``mode3fibers``, ``mode1slices``, ``mode2slices``, ``mode3slices``, ``factors`` or ``zero`` (default="mode3fibers")
+        Method to use for imputing missing values. If ``factors``, then the initialization of the factor matrices are used to impute the missing values.
 
     Returns
     -------
@@ -944,13 +1039,18 @@ def cmf_aoadmm(
 
         # Raise warning if a mode-2 fiber is completely missing
         for i, mask_slice in enumerate(mask):
-            if tl.sum(mask_slice,axis=1).min() == 0:
-                print(f"Warning: Slice {i} contains a mode-2 fiber that is completely missing. Such entries cannot be imputed without additional constraints on the evolving mode.")
+            if tl.sum(mask_slice, axis=1).min() == 0:
+                print(
+                    f"Warning: Slice {i} contains a mode-2 fiber that is completely missing. Such entries cannot be imputed without additional constraints on the evolving mode."
+                )
 
-        if init == "random" or init == "svd" or init == "threshold_svd":
-            matrices = _update_imputed(tensor_slices=list(matrices), mask=mask, decomposition=None, method="mode-3")
-        else:  # If factors are provided from a "warmer" start (e.g. parafac2_als) use the factor estimates as initial guesses
-            matrices = _update_imputed(tensor_slices=list(matrices), mask=mask, decomposition=cmf, method="factors")
+        if impute == "factors" and init in {"random", "svd", "threshold_svd"}:
+            print(
+                f"Warning: impute='factors' is not compatible with init='{init}', using impute='mode3fibers' instead."
+            )
+            impute = "mode3fibers"
+
+        matrices = _update_imputed(tensor_slices=list(matrices), mask=mask, decomposition=cmf, method=impute)
 
     regs = _parse_all_penalties(
         non_negative=non_negative,
@@ -991,7 +1091,9 @@ def cmf_aoadmm(
     rec_errors = []
     feasibility_gaps = []
 
-    rec_error = _cmf_reconstruction_error(matrices=matrices, cmf=cmf, norm_matrices=norm_matrices,intermediate_A_calculations=None,mask=mask)
+    rec_error = _cmf_reconstruction_error(
+        matrices=matrices, cmf=cmf, norm_matrices=norm_matrices, intermediate_A_calculations=None, mask=mask
+    )
     rec_error /= norm_matrices
     rec_errors.append(rec_error)
     losses = []
@@ -1097,7 +1199,13 @@ def cmf_aoadmm(
 
                     continue
 
-            rec_error = _cmf_reconstruction_error(matrices=matrices,cmf=cmf,norm_matrices=norm_matrices,intermediate_A_calculations=intermediate_A_calculations,mask=mask)
+            rec_error = _cmf_reconstruction_error(
+                matrices=matrices,
+                cmf=cmf,
+                norm_matrices=norm_matrices,
+                intermediate_A_calculations=intermediate_A_calculations,
+                mask=mask,
+            )
             rec_error /= norm_matrices
             rec_errors.append(rec_error)
             reg_penalty = (
